@@ -1,6 +1,56 @@
 ﻿@page "/"
+@using Microsoft.AspNetCore.SignalR.Client
 @inject NavigationManager NavigationManager
 @implements IAsyncDisposable
 <PageTitle>Index</PageTitle>
+<h2 class="text-info">Welcome to Chat Application</h2>
+<hr class="text-danger" style="height:5px" />
+<div class="input-group mb-3">
+    <input type="text" @bind-value="message" class="form-control" placeholder="Type your message here" aria-label="Type your message here" aria-describedby="button-addon2">
+    <button class="btn btn-outline-primary" @onclick="@ClickHandler" type="button" id="button-addon2">Send Message</button>
+</div>
+@if (messages.Any())
+{
+    <ul>
+        @foreach(var sms in messages)
+        {
+          <li>@sms</li>
+        }
+    </ul>
+}
+@code {
+    private HubConnection? connection;
+    public bool IsConnected { get; set; }
+    private string message = "";
+    private string user = "Kirk";
+    private List<string> messages = new();
+    protected async override Task OnInitializedAsync()
+    {
+        connection = new HubConnectionBuilder()
+        .WithUrl(NavigationManager.ToAbsoluteUri("/apphub"))
+        .WithAutomaticReconnect()
+        .Build();
+        connection.On<string, string>("GetMessage", (sender, message) =>
+          {
+              var sentMessage = $"{sender} says: {message}";
+              messages.Add(sentMessage);
+              InvokeAsync(StateHasChanged);
+          });
+        await connection.StartAsync();
+    }
+    private async Task ClickHandler()
+    {
+        if (connection is not null)
+        {
+            await connection.SendAsync("GetMessage", user, message);
+        }
+    }
+    public async ValueTask DisposeAsync()
+    {
+        if (connection is not null)
+        {
+            await connection.DisposeAsync();
+        }
+    }
 
-
+}
