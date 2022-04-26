@@ -27,10 +27,10 @@
     protected async override Task OnInitializedAsync()
     {
         connection = new HubConnectionBuilder()
-        .WithUrl(NavigationManager.ToAbsoluteUri("/apphub"))
+        .WithUrl(NavigationManager.ToAbsoluteUri("/chathub"))
         .WithAutomaticReconnect()
         .Build();
-        connection.On<string, string>("GetMessage", (sender, message) =>
+        connection.On<string, string>("ReceiveMessage", (sender, message) =>
           {
               var sentMessage = $"{sender} says: {message}";
               messages.Add(sentMessage);
@@ -42,7 +42,7 @@
     {
         if (connection is not null)
         {
-            await connection.SendAsync("GetMessage", user, message);
+            await connection.SendAsync("ReceiveMessage", user, message);
         }
     }
     public async ValueTask DisposeAsync()
