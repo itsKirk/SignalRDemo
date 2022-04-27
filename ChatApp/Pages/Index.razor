@@ -4,45 +4,93 @@
 @implements IAsyncDisposable
 <PageTitle>Index</PageTitle>
 <h2 class="text-info">Welcome to Chat Application</h2>
+
+
+
 <hr class="text-danger" style="height:5px" />
+@if (IsConnected)
+{
+    <div>
+        Connection Status <span style="color:#0bed0b">Connected</span>
+    </div>
+}
+else
+{
+    <div>
+        Connection Status <span style="color:red">Disconnected</span>
+    </div>
+}
+<br />
+<div class="mb-3" style="visibility:@visibility">
+    <label for="exampleFormControlInput1" class="form-label">Type your username</label>
+    <input type="text" @bind="user" disabled="@(!UserIsSet())" class="form-control" placeholder="username" aria-describedby="button-addon2">
+</div>
+
 <div class="input-group mb-3">
-    <input type="text" @bind-value="message" class="form-control" placeholder="Type your message here" aria-label="Type your message here" aria-describedby="button-addon2">
+    <input type="text" @bind="message" class="form-control" placeholder="Type your message here" aria-label="Type your message here" aria-describedby="button-addon2">
     <button class="btn btn-outline-primary" @onclick="@ClickHandler" type="button" id="button-addon2">Send Message</button>
 </div>
 @if (messages.Any())
 {
-    <ul>
-        @foreach(var sms in messages)
-        {
-          <li>@sms</li>
-        }
-    </ul>
+
+    @foreach (var sms in messages)
+    {
+        <div class="card" style="width: 18rem; background-color: lightgreen;">
+            <div class="card-header small fst-italic">
+                @user
+            </div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item">@sms</li>
+                <li class="list-group-item small">Sent at @DateTime.Now.ToLocalTime().ToShortTimeString()</li>
+            </ul>
+        </div>
+        <br />
+    }
+
 }
 @code {
     private HubConnection? connection;
-    public bool IsConnected { get; set; }
-    private string message = "";
-    private string user = "Kirk";
+    private string visibility = "visible";
+    private string? message;
+    private string? user;
     private List<string> messages = new();
     protected async override Task OnInitializedAsync()
     {
+        UserIsSet();
         connection = new HubConnectionBuilder()
-        .WithUrl(NavigationManager.ToAbsoluteUri("/chathub"))
+        .WithUrl(NavigationManager.ToAbsoluteUri("chathub"))
         .WithAutomaticReconnect()
         .Build();
         connection.On<string, string>("ReceiveMessage", (sender, message) =>
           {
-              var sentMessage = $"{sender} says: {message}";
+              var sentMessage = $"{message}";
               messages.Add(sentMessage);
               InvokeAsync(StateHasChanged);
           });
         await connection.StartAsync();
     }
+    private bool UserIsSet()
+    {
+        var userNotSet = string.IsNullOrWhiteSpace(user);
+        if (userNotSet)
+        {
+            visibility = "visible";
+        }
+        else
+        {
+            visibility = "hidden";
+        }
+        return userNotSet;
+    }
+    public bool IsConnected => connection?.State == HubConnectionState.Connected;
+    private bool MessageIsValid() => !string.IsNullOrEmpty(user) && !string.IsNullOrEmpty(message);
+
     private async Task ClickHandler()
     {
-        if (connection is not null)
+        if (connection is not null && MessageIsValid())
         {
-            await connection.SendAsync("ReceiveMessage", user, message);
+            await connection.SendAsync("SendMessage", user, message);
+            message = "";
         }
     }
     public async ValueTask DisposeAsync()
